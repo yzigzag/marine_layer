@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Decision Tree</title>
+  <meta name="description" content="Build and walk through personal decision trees and rules of thumb." />
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#1c1c1a" media="(prefers-color-scheme: dark)" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Decision Tree" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    :root {
+      --color-text-primary: #1a1a18;
+      --color-text-secondary: #6b6b65;
+      --color-text-tertiary: #9b9b95;
+      --color-background-primary: #ffffff;
+      --color-background-secondary: #f5f5f2;
+      --color-border-tertiary: rgba(0,0,0,0.10);
+      --color-border-secondary: rgba(0,0,0,0.20);
+      --color-border-primary: rgba(0,0,0,0.38);
+      --color-background-success: #eaf3de;
+      --color-border-success: rgba(59,109,17,0.28);
+      --color-text-success: #3b6d11;
+      --color-background-danger: #fcebeb;
+      --color-text-danger: #a32d2d;
+      --border-radius-md: 8px;
+      --border-radius-lg: 12px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --color-text-primary: #e8e8e4;
+        --color-text-secondary: #a0a09a;
+        --color-text-tertiary: #6b6b65;
+        --color-background-primary: #1c1c1a;
+        --color-background-secondary: #252523;
+        --color-border-tertiary: rgba(255,255,255,0.10);
+        --color-border-secondary: rgba(255,255,255,0.20);
+        --color-border-primary: rgba(255,255,255,0.38);
+        --color-background-success: #173404;
+        --color-border-success: rgba(97,153,34,0.30);
+        --color-text-success: #c0dd97;
+        --color-background-danger: #501313;
+        --color-text-danger: #f09595;
+      }
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: var(--font-sans);
+      background: var(--color-background-primary);
+      color: var(--color-text-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+    body { padding: 1.25rem 1rem 3rem; max-width: 680px; margin: 0 auto; }
+
+    /* header */
+    .hdr { display: flex; align-items: center; gap: 12px; margin-bottom: 1.75rem; }
+    .ti { flex: 1; font-size: 18px; font-weight: 500; border: none; background: transparent; color: var(--color-text-primary); outline: none; padding: 0; font-family: var(--font-sans); }
+    .ti::placeholder { color: var(--color-text-tertiary); }
+    .tog { display: flex; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); overflow: hidden; flex-shrink: 0; }
+    .tog button { padding: 7px 16px; font-size: 13px; border: none; background: transparent; color: var(--color-text-secondary); cursor: pointer; font-family: var(--font-sans); }
+    .tog button.on { background: var(--color-background-secondary); color: var(--color-text-primary); font-weight: 500; }
+    .tog button:disabled { opacity: 0.35; cursor: default; }
+
+    /* tree nodes */
+    .nw { display: flex; flex-direction: column; gap: 4px; }
+    .nr { display: flex; align-items: center; gap: 8px; }
+    .pill { font-size: 11px; color: var(--color-text-tertiary); background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: 10px; padding: 2px 8px; white-space: nowrap; flex-shrink: 0; }
+    .nc { flex: 1; display: flex; align-items: center; gap: 8px; background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 8px 12px; min-width: 0; }
+    .nc.leaf { background: var(--color-background-secondary); border-style: dashed; }
+    .nc.ed { border-color: var(--color-border-primary); }
+    .nt { flex: 1; font-size: 14px; color: var(--color-text-primary); word-break: break-word; }
+    .ni { flex: 1; font-size: 14px; border: none; background: transparent; color: var(--color-text-primary); outline: none; font-family: var(--font-sans); min-width: 0; }
+    .otag { font-size: 11px; color: var(--color-text-tertiary); white-space: nowrap; flex-shrink: 0; }
+    .acts { display: flex; gap: 2px; flex-shrink: 0; }
+    .ib { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; color: var(--color-text-tertiary); cursor: pointer; border-radius: 6px; font-size: 14px; padding: 0; font-family: var(--font-sans); }
+    .ib:hover { background: var(--color-background-secondary); color: var(--color-text-primary); }
+    .ib.del:hover { background: var(--color-background-danger); color: var(--color-text-danger); }
+    .kids { margin-left: 24px; border-left: 1.5px solid var(--color-border-tertiary); padding-left: 16px; display: flex; flex-direction: column; gap: 6px; padding-top: 6px; padding-bottom: 2px; }
+    .bform { display: flex; gap: 6px; align-items: center; background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 6px 10px; }
+    .bform span { font-size: 12px; color: var(--color-text-tertiary); flex-shrink: 0; }
+    .bform input { flex: 1; font-size: 13px; min-width: 0; border: none; background: transparent; color: var(--color-text-primary); outline: none; font-family: var(--font-sans); }
+    .bform button { font-size: 12px; padding: 4px 10px; white-space: nowrap; font-family: var(--font-sans); cursor: pointer; }
+    .bform .xbtn { border: none; background: transparent; cursor: pointer; color: var(--color-text-tertiary); font-size: 14px; padding: 0 2px; line-height: 1; }
+
+    /* walk */
+    .wcol { display: flex; flex-direction: column; gap: 1rem; }
+    .wback { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-text-secondary); background: none; border: none; cursor: pointer; padding: 0; font-family: var(--font-sans); }
+    .wback:hover { color: var(--color-text-primary); }
+    .wcard { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1.5rem; }
+    .wq { font-size: 20px; font-weight: 500; color: var(--color-text-primary); margin: 0 0 1.25rem; line-height: 1.4; }
+    .wa { display: flex; flex-wrap: wrap; gap: 8px; }
+    .wab { padding: 10px 20px; font-size: 14px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); background: transparent; color: var(--color-text-primary); cursor: pointer; font-family: var(--font-sans); }
+    .wab:hover { background: var(--color-background-secondary); }
+    .wout { background: var(--color-background-success); border: 0.5px solid var(--color-border-success); border-radius: var(--border-radius-lg); padding: 1.5rem; }
+    .wotag { font-size: 11px; font-weight: 500; color: var(--color-text-success); margin: 0 0 6px; }
+    .wotext { font-size: 20px; font-weight: 500; color: var(--color-text-success); margin: 0 0 1.25rem; line-height: 1.4; }
+    .wout button { font-family: var(--font-sans); cursor: pointer; }
+    .bc { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; margin-bottom: 12px; }
+    .bc span { font-size: 12px; color: var(--color-text-tertiary); }
+
+    /* empty */
+    .empty { text-align: center; padding: 4rem 1rem; color: var(--color-text-tertiary); font-size: 14px; line-height: 2.4; }
+    .empty button { margin-top: 4px; font-family: var(--font-sans); cursor: pointer; font-size: 14px; padding: 10px 22px; }
+
+    /* tree selector */
+    .tree-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 1.25rem; overflow-x: auto; padding-bottom: 4px; }
+    .tree-tab { font-size: 13px; padding: 5px 12px; border: 0.5px solid var(--color-border-secondary); border-radius: 10px; background: transparent; color: var(--color-text-secondary); cursor: pointer; white-space: nowrap; font-family: var(--font-sans); }
+    .tree-tab.on { background: var(--color-background-secondary); color: var(--color-text-primary); font-weight: 500; border-color: var(--color-border-primary); }
+    .tree-tab.add-tab { color: var(--color-text-tertiary); }
+  </style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ── Storage ──────────────────────────────────────────────────────────────────
+const STORE_KEY = 'dt_pwa_v1';
+
+function loadAll() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  return { trees: [], activeId: null };
+}
+
+function saveAll() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(DB)); } catch(e) {}
+}
+
+// ── State ────────────────────────────────────────────────────────────────────
+let DB = loadAll();         // { trees: [{id,title,nodes,edges,root}], activeId }
+let mode = 'build';         // 'build' | 'walk'
+let hist = [];
+let editing = null;
+let addingTo = null;
+window._et = '';
+window._eb = '';
+
+function uid() { return '_' + Math.random().toString(36).slice(2, 7); }
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function getTree() {
+  return DB.trees.find(t => t.id === DB.activeId) || null;
+}
+
+function ensureEdges(T, id) {
+  if (!T.edges[id]) T.edges[id] = [];
+}
+
+// ── Tree management ──────────────────────────────────────────────────────────
+window.newTree = () => {
+  const id = uid();
+  DB.trees.push({ id, title: 'New tree', nodes: {}, edges: {}, root: null });
+  DB.activeId = id;
+  mode = 'build'; hist = []; editing = null; addingTo = null;
+  saveAll(); R();
+};
+
+window.switchTree = (id) => {
+  DB.activeId = id;
+  mode = 'build'; hist = []; editing = null; addingTo = null;
+  saveAll(); R();
+};
+
+window.updateTitle = (val) => {
+  const T = getTree(); if (!T) return;
+  T.title = val; saveAll();
+};
+
+// ── Node mutations ────────────────────────────────────────────────────────────
+window.addRoot = () => {
+  const T = getTree(); if (!T) return;
+  const id = uid();
+  T.nodes[id] = { id, text: 'First question' };
+  T.edges[id] = [];
+  T.root = id;
+  editing = id; window._et = 'First question';
+  saveAll(); R();
+  setTimeout(() => { const e = document.getElementById('ei'+id); if(e){e.focus();e.select();} }, 40);
+};
+
+window.startEdit = (id) => {
+  const T = getTree(); if (!T) return;
+  editing = id; addingTo = null; window._et = T.nodes[id].text;
+  R();
+  setTimeout(() => { const e = document.getElementById('ei'+id); if(e){e.focus();e.select();} }, 40);
+};
+
+window.saveEdit = (id) => {
+  const T = getTree(); if (!T) return;
+  if (window._et.trim()) T.nodes[id].text = window._et.trim();
+  editing = null; saveAll(); R();
+};
+
+window.cancelEdit = () => { editing = null; R(); };
+
+window.startAdd = (id) => {
+  addingTo = id; editing = null; window._eb = '';
+  R();
+  setTimeout(() => { const e = document.getElementById('bi'); if(e) e.focus(); }, 40);
+};
+
+window.cancelAdd = () => { addingTo = null; R(); };
+
+window.confirmAdd = () => {
+  const lbl = (window._eb || '').trim();
+  if (!lbl) return;
+  const T = getTree(); if (!T) return;
+  const cid = uid();
+  T.nodes[cid] = { id: cid, text: 'New node' };
+  T.edges[cid] = [];
+  ensureEdges(T, addingTo);
+  T.edges[addingTo].push({ label: lbl, to: cid });
+  addingTo = null; editing = cid; window._et = 'New node';
+  saveAll(); R();
+  setTimeout(() => { const e = document.getElementById('ei'+cid); if(e){e.focus();e.select();} }, 40);
+};
+
+window.delNode = (id) => {
+  const T = getTree(); if (!T) return;
+  function rm(nid) {
+    if (nid === T.root) T.root = null;
+    for (const p in T.edges) T.edges[p] = T.edges[p].filter(e => e.to !== nid);
+    const kids = (T.edges[nid] || []).map(e => e.to);
+    delete T.nodes[nid]; delete T.edges[nid];
+    kids.forEach(rm);
+  }
+  rm(id); saveAll(); R();
+};
+
+// ── Walk ──────────────────────────────────────────────────────────────────────
+window.startWalk = () => { hist = []; mode = 'walk'; R(); };
+window.goEdit = () => { mode = 'build'; R(); };
+
+function walkCur() {
+  const T = getTree(); if (!T) return null;
+  return hist.length ? hist[hist.length - 1].to : T.root;
+}
+
+window.walkStep = (parentId, idx) => {
+  const T = getTree(); if (!T) return;
+  const edge = (T.edges[parentId] || [])[idx];
+  if (!edge) return;
+  hist.push({ from: parentId, label: edge.label, to: edge.to });
+  R();
+};
+
+window.walkBack = () => { if (hist.length) hist.pop(); else mode = 'build'; R(); };
+window.walkRestart = () => { hist = []; R(); };
+
+// ── Render: build node ────────────────────────────────────────────────────────
+function rNode(T, id, branchLabel) {
+  const n = T.nodes[id]; if (!n) return '';
+  const kids = T.edges[id] || [];
+  const isLeaf = kids.length === 0;
+  const isEd = editing === id;
+  const isAdd = addingTo === id;
+
+  const textPart = isEd
+    ? `<input class="ni" id="ei${id}" value="${esc(n.text)}"
+        oninput="window._et=this.value"
+        onkeydown="if(event.key==='Enter'){window._et=this.value;window.saveEdit('${id}');}else if(event.key==='Escape')window.cancelEdit();" />`
+    : `<span class="nt">${esc(n.text)}</span>`;
+
+  const acts = isEd
+    ? `<div class="acts">
+        <button class="ib" onclick="window.saveEdit('${id}')">✓</button>
+        <button class="ib" onclick="window.cancelEdit()">✕</button>
+      </div>`
+    : `<div class="acts">
+        <button class="ib" onclick="window.startAdd('${id}')" title="Add branch">+</button>
+        <button class="ib" onclick="window.startEdit('${id}')" title="Edit">✎</button>
+        <button class="ib del" onclick="window.delNode('${id}')" title="Delete">✕</button>
+      </div>`;
+
+  const bformHtml = `<div class="bform">
+    <span>if →</span>
+    <input id="bi" placeholder='"Yes"  "No"  "High"  "Low"…'
+      oninput="window._eb=this.value"
+      onkeydown="if(event.key==='Enter'){window._eb=this.value;window.confirmAdd();}else if(event.key==='Escape')window.cancelAdd();" />
+    <button onclick="window._eb=document.getElementById('bi').value;window.confirmAdd()">Add</button>
+    <button class="xbtn" onclick="window.cancelAdd()">✕</button>
+  </div>`;
+
+  const kidsHtml = (kids.length > 0 || isAdd)
+    ? `<div class="kids">
+        ${isAdd ? bformHtml : ''}
+        ${kids.map(e => rNode(T, e.to, e.label)).join('')}
+      </div>`
+    : '';
+
+  return `<div class="nw">
+    <div class="nr">
+      ${branchLabel ? `<span class="pill">${esc(branchLabel)}</span>` : ''}
+      <div class="nc ${isLeaf ? 'leaf' : ''} ${isEd ? 'ed' : ''}">
+        ${textPart}
+        ${isLeaf && !isEd ? '<span class="otag">outcome</span>' : ''}
+        ${acts}
+      </div>
+    </div>
+    ${kidsHtml}
+  </div>`;
+}
+
+// ── Render: walk ──────────────────────────────────────────────────────────────
+function rWalk() {
+  const T = getTree(); if (!T) return '';
+  const nodeId = walkCur();
+  if (!nodeId || !T.nodes[nodeId]) return '<div class="empty">Tree not found.</div>';
+  const n = T.nodes[nodeId];
+  const kids = T.edges[nodeId] || [];
+  const isLeaf = kids.length === 0;
+
+  const backBtn = `<button class="wback" onclick="window.walkBack()">← ${hist.length ? 'Back' : 'Edit tree'}</button>`;
+  const bc = hist.length
+    ? `<div class="bc">${hist.map(h => `<span>${esc(T.nodes[h.from]?.text || '')}</span><span style="opacity:.45"> › ${esc(h.label)} › </span>`).join('')}</div>`
+    : '';
+
+  if (isLeaf) {
+    return `${backBtn}${bc}
+    <div class="wout">
+      <p class="wotag">Outcome</p>
+      <p class="wotext">${esc(n.text)}</p>
+      <button onclick="window.walkRestart()">Start over</button>
+    </div>`;
+  }
+
+  return `${backBtn}${bc}
+  <div class="wcard">
+    <p class="wq">${esc(n.text)}</p>
+    <div class="wa">${kids.map((e, i) =>
+      `<button class="wab" onclick="window.walkStep('${nodeId}',${i})">${esc(e.label)}</button>`
+    ).join('')}</div>
+  </div>`;
+}
+
+// ── Main render ───────────────────────────────────────────────────────────────
+function R() {
+  const app = document.getElementById('app');
+  if (!app) return;
+  const T = getTree();
+
+  // Tree tabs
+  const tabs = DB.trees.map(t =>
+    `<button class="tree-tab ${t.id === DB.activeId ? 'on' : ''}" onclick="window.switchTree('${t.id}')">${esc(t.title) || 'Untitled'}</button>`
+  ).join('') + `<button class="tree-tab add-tab" onclick="window.newTree()">+ New</button>`;
+
+  const treeBar = DB.trees.length > 0
+    ? `<div class="tree-bar">${tabs}</div>`
+    : '';
+
+  if (!T) {
+    app.innerHTML = `
+      ${treeBar}
+      <div class="empty">
+        No trees yet.<br>
+        <button onclick="window.newTree()">Create your first tree</button>
+      </div>`;
+    return;
+  }
+
+  const hasRoot = T.root && T.nodes[T.root];
+
+  if (mode === 'walk') {
+    app.innerHTML = `
+      ${treeBar}
+      <div class="hdr">
+        <span style="font-size:18px;font-weight:500;color:var(--color-text-primary)">${esc(T.title) || 'Decision tree'}</span>
+        <div class="tog">
+          <button onclick="window.goEdit()">Build</button>
+          <button class="on">Walk</button>
+        </div>
+      </div>
+      <div class="wcol">${rWalk()}</div>`;
+    return;
+  }
+
+  const treeHtml = hasRoot
+    ? rNode(T, T.root, null)
+    : `<div class="empty">No nodes yet.<br><button onclick="window.addRoot()">Add first node</button></div>`;
+
+  app.innerHTML = `
+    ${treeBar}
+    <div class="hdr">
+      <input class="ti" placeholder="Name your tree…" value="${esc(T.title)}"
+        oninput="window.updateTitle(this.value)" />
+      <div class="tog">
+        <button class="on">Build</button>
+        <button onclick="window.startWalk()" ${!hasRoot ? 'disabled' : ''}>Walk</button>
+      </div>
+    </div>
+    ${treeHtml}`;
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+R();
+</script>
+</body>
+</html>
