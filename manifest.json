@@ -2,7 +2,7 @@
   "name": "Decision Tree",
   "short_name": "Decision Tree",
   "description": "Build and walk through personal decision trees and rules of thumb.",
-  "start_url": "/",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
