@@ -150,6 +150,7 @@ let editing = null;
 let addingTo = null;
 let isOnline = navigator.onLine;
 let unsub = null;
+let _titleTimer = null;
 window._et = '';
 window._eb = '';
 
@@ -170,7 +171,8 @@ async function saveToCloud() {
 
 function subscribeToCloud() {
   if (unsub) unsub();
-  unsub = docRef().onSnapshot(snap => {
+  unsub = docRef().onSnapshot({ includeMetadataChanges: true }, snap => {
+    if (snap.metadata.hasPendingWrites) return;
     if (snap.exists) {
       const d = snap.data();
       DB.trees = d.trees || [];
@@ -223,7 +225,9 @@ window.switchTree = (id) => {
 
 window.updateTitle = (val) => {
   const T = getTree(); if (!T) return;
-  T.title = val; saveToCloud();
+  T.title = val;
+  clearTimeout(_titleTimer);
+  _titleTimer = setTimeout(() => saveToCloud(), 800);
 };
 
 function getTree() { return DB.trees.find(t => t.id === DB.activeId) || null; }
