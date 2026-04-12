@@ -12,6 +12,11 @@
   <meta name="apple-mobile-web-app-title" content="Decision Tree" />
   <link rel="apple-touch-icon" href="icon-192.png" />
   <link rel="manifest" href="manifest.json" />
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
   <style>
     :root {
       --color-text-primary: #1a1a18;
@@ -49,16 +54,26 @@
       }
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body {
-      height: 100%;
-      font-family: var(--font-sans);
-      background: var(--color-background-primary);
-      color: var(--color-text-primary);
-      -webkit-font-smoothing: antialiased;
-    }
+    html, body { height: 100%; font-family: var(--font-sans); background: var(--color-background-primary); color: var(--color-text-primary); -webkit-font-smoothing: antialiased; }
     body { padding: 1.25rem 1rem 3rem; max-width: 680px; margin: 0 auto; }
 
-    /* header */
+    .signin-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 70vh; gap: 1.5rem; text-align: center; padding: 2rem; }
+    .signin-wrap h1 { font-size: 24px; font-weight: 500; }
+    .signin-wrap p { font-size: 14px; color: var(--color-text-secondary); line-height: 1.6; max-width: 280px; }
+    .signin-btn { display: flex; align-items: center; gap: 10px; padding: 11px 20px; font-size: 14px; font-family: var(--font-sans); border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); background: var(--color-background-primary); color: var(--color-text-primary); cursor: pointer; }
+    .signin-btn:hover { background: var(--color-background-secondary); }
+    .signin-err { font-size: 13px; color: var(--color-text-danger); min-height: 18px; }
+    .loading { display: flex; align-items: center; justify-content: center; min-height: 60vh; font-size: 14px; color: var(--color-text-tertiary); }
+
+    .user-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 1.5rem; }
+    .avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+    .avatar-fallback { width: 28px; height: 28px; border-radius: 50%; background: var(--color-background-secondary); border: 0.5px solid var(--color-border-secondary); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; color: var(--color-text-secondary); flex-shrink: 0; }
+    .user-name { flex: 1; font-size: 13px; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: #639922; flex-shrink: 0; }
+    .sync-dot.offline { background: var(--color-text-tertiary); }
+    .signout-btn { font-size: 12px; color: var(--color-text-tertiary); background: none; border: none; cursor: pointer; font-family: var(--font-sans); padding: 4px 6px; border-radius: 4px; white-space: nowrap; }
+    .signout-btn:hover { color: var(--color-text-secondary); background: var(--color-background-secondary); }
+
     .hdr { display: flex; align-items: center; gap: 12px; margin-bottom: 1.75rem; }
     .ti { flex: 1; font-size: 18px; font-weight: 500; border: none; background: transparent; color: var(--color-text-primary); outline: none; padding: 0; font-family: var(--font-sans); }
     .ti::placeholder { color: var(--color-text-tertiary); }
@@ -67,7 +82,11 @@
     .tog button.on { background: var(--color-background-secondary); color: var(--color-text-primary); font-weight: 500; }
     .tog button:disabled { opacity: 0.35; cursor: default; }
 
-    /* tree nodes */
+    .tree-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 1.25rem; overflow-x: auto; padding-bottom: 4px; }
+    .tree-tab { font-size: 13px; padding: 5px 12px; border: 0.5px solid var(--color-border-secondary); border-radius: 10px; background: transparent; color: var(--color-text-secondary); cursor: pointer; white-space: nowrap; font-family: var(--font-sans); }
+    .tree-tab.on { background: var(--color-background-secondary); color: var(--color-text-primary); font-weight: 500; border-color: var(--color-border-primary); }
+    .tree-tab.add-tab { color: var(--color-text-tertiary); }
+
     .nw { display: flex; flex-direction: column; gap: 4px; }
     .nr { display: flex; align-items: center; gap: 8px; }
     .pill { font-size: 11px; color: var(--color-text-tertiary); background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: 10px; padding: 2px 8px; white-space: nowrap; flex-shrink: 0; }
@@ -88,7 +107,6 @@
     .bform button { font-size: 12px; padding: 4px 10px; white-space: nowrap; font-family: var(--font-sans); cursor: pointer; }
     .bform .xbtn { border: none; background: transparent; cursor: pointer; color: var(--color-text-tertiary); font-size: 14px; padding: 0 2px; line-height: 1; }
 
-    /* walk */
     .wcol { display: flex; flex-direction: column; gap: 1rem; }
     .wback { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-text-secondary); background: none; border: none; cursor: pointer; padding: 0; font-family: var(--font-sans); }
     .wback:hover { color: var(--color-text-primary); }
@@ -103,126 +121,154 @@
     .wout button { font-family: var(--font-sans); cursor: pointer; }
     .bc { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; margin-bottom: 12px; }
     .bc span { font-size: 12px; color: var(--color-text-tertiary); }
-
-    /* empty */
     .empty { text-align: center; padding: 4rem 1rem; color: var(--color-text-tertiary); font-size: 14px; line-height: 2.4; }
     .empty button { margin-top: 4px; font-family: var(--font-sans); cursor: pointer; font-size: 14px; padding: 10px 22px; }
-
-    /* tree selector */
-    .tree-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 1.25rem; overflow-x: auto; padding-bottom: 4px; }
-    .tree-tab { font-size: 13px; padding: 5px 12px; border: 0.5px solid var(--color-border-secondary); border-radius: 10px; background: transparent; color: var(--color-text-secondary); cursor: pointer; white-space: nowrap; font-family: var(--font-sans); }
-    .tree-tab.on { background: var(--color-background-secondary); color: var(--color-text-primary); font-weight: 500; border-color: var(--color-border-primary); }
-    .tree-tab.add-tab { color: var(--color-text-tertiary); }
   </style>
 </head>
 <body>
-<div id="app"></div>
-
+<div id="app"><div class="loading">Loading…</div></div>
 <script>
-// ── Storage ──────────────────────────────────────────────────────────────────
-const STORE_KEY = 'dt_pwa_v1';
+const firebaseConfig = {
+  apiKey: "AIzaSyDpDd8OLkhRzyvcPs7X1DYip0KJsI-qR2M",
+  authDomain: "marine-layer-fb.firebaseapp.com",
+  projectId: "marine-layer-fb",
+  storageBucket: "marine-layer-fb.firebasestorage.app",
+  messagingSenderId: "474099328749",
+  appId: "1:474099328749:web:61d2b573fc5de96a4c8ee4"
+};
 
-function loadAll() {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch(e) {}
-  return { trees: [], activeId: null };
-}
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
 
-function saveAll() {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(DB)); } catch(e) {}
-}
-
-// ── State ────────────────────────────────────────────────────────────────────
-let DB = loadAll();         // { trees: [{id,title,nodes,edges,root}], activeId }
-let mode = 'build';         // 'build' | 'walk'
+let currentUser = null;
+let DB = { trees: [], activeId: null };
+let mode = 'build';
 let hist = [];
 let editing = null;
 let addingTo = null;
+let isOnline = navigator.onLine;
+let unsub = null;
 window._et = '';
 window._eb = '';
 
+window.addEventListener('online',  () => { isOnline = true;  R(); });
+window.addEventListener('offline', () => { isOnline = false; R(); });
+
 function uid() { return '_' + Math.random().toString(36).slice(2, 7); }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-function esc(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function docRef() {
+  return db.collection('users').doc(currentUser.uid).collection('data').doc('trees');
 }
 
-function getTree() {
-  return DB.trees.find(t => t.id === DB.activeId) || null;
+async function saveToCloud() {
+  if (!currentUser) return;
+  try { await docRef().set({ trees: DB.trees, activeId: DB.activeId }); } catch(e) {}
 }
 
-function ensureEdges(T, id) {
-  if (!T.edges[id]) T.edges[id] = [];
+function subscribeToCloud() {
+  if (unsub) unsub();
+  unsub = docRef().onSnapshot(snap => {
+    if (snap.exists) {
+      const d = snap.data();
+      DB.trees = d.trees || [];
+      DB.activeId = d.activeId || (DB.trees[0]?.id || null);
+    } else {
+      DB = { trees: [], activeId: null };
+    }
+    R();
+  }, () => {});
 }
 
-// ── Tree management ──────────────────────────────────────────────────────────
+window.signIn = async () => {
+  document.getElementById('signin-err').textContent = '';
+  try {
+    await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+  } catch(e) {
+    const el = document.getElementById('signin-err');
+    if (el) el.textContent = 'Sign-in failed. Please try again.';
+  }
+};
+
+window.signOut = async () => {
+  if (unsub) { unsub(); unsub = null; }
+  await auth.signOut();
+};
+
+auth.onAuthStateChanged(user => {
+  currentUser = user;
+  if (user) {
+    subscribeToCloud();
+  } else {
+    if (unsub) { unsub(); unsub = null; }
+    DB = { trees: [], activeId: null };
+    R();
+  }
+});
+
 window.newTree = () => {
   const id = uid();
   DB.trees.push({ id, title: 'New tree', nodes: {}, edges: {}, root: null });
   DB.activeId = id;
   mode = 'build'; hist = []; editing = null; addingTo = null;
-  saveAll(); R();
+  saveToCloud(); R();
 };
 
 window.switchTree = (id) => {
-  DB.activeId = id;
-  mode = 'build'; hist = []; editing = null; addingTo = null;
-  saveAll(); R();
+  DB.activeId = id; mode = 'build'; hist = []; editing = null; addingTo = null;
+  saveToCloud(); R();
 };
 
 window.updateTitle = (val) => {
   const T = getTree(); if (!T) return;
-  T.title = val; saveAll();
+  T.title = val; saveToCloud();
 };
 
-// ── Node mutations ────────────────────────────────────────────────────────────
+function getTree() { return DB.trees.find(t => t.id === DB.activeId) || null; }
+
 window.addRoot = () => {
   const T = getTree(); if (!T) return;
   const id = uid();
   T.nodes[id] = { id, text: 'First question' };
   T.edges[id] = [];
-  T.root = id;
-  editing = id; window._et = 'First question';
-  saveAll(); R();
+  T.root = id; editing = id; window._et = 'First question';
+  saveToCloud(); R();
   setTimeout(() => { const e = document.getElementById('ei'+id); if(e){e.focus();e.select();} }, 40);
 };
 
 window.startEdit = (id) => {
   const T = getTree(); if (!T) return;
-  editing = id; addingTo = null; window._et = T.nodes[id].text;
-  R();
+  editing = id; addingTo = null; window._et = T.nodes[id].text; R();
   setTimeout(() => { const e = document.getElementById('ei'+id); if(e){e.focus();e.select();} }, 40);
 };
 
 window.saveEdit = (id) => {
   const T = getTree(); if (!T) return;
   if (window._et.trim()) T.nodes[id].text = window._et.trim();
-  editing = null; saveAll(); R();
+  editing = null; saveToCloud(); R();
 };
 
 window.cancelEdit = () => { editing = null; R(); };
 
 window.startAdd = (id) => {
-  addingTo = id; editing = null; window._eb = '';
-  R();
+  addingTo = id; editing = null; window._eb = ''; R();
   setTimeout(() => { const e = document.getElementById('bi'); if(e) e.focus(); }, 40);
 };
 
 window.cancelAdd = () => { addingTo = null; R(); };
 
 window.confirmAdd = () => {
-  const lbl = (window._eb || '').trim();
-  if (!lbl) return;
+  const lbl = (window._eb||'').trim(); if (!lbl) return;
   const T = getTree(); if (!T) return;
   const cid = uid();
   T.nodes[cid] = { id: cid, text: 'New node' };
   T.edges[cid] = [];
-  ensureEdges(T, addingTo);
+  if (!T.edges[addingTo]) T.edges[addingTo] = [];
   T.edges[addingTo].push({ label: lbl, to: cid });
   addingTo = null; editing = cid; window._et = 'New node';
-  saveAll(); R();
+  saveToCloud(); R();
   setTimeout(() => { const e = document.getElementById('ei'+cid); if(e){e.focus();e.select();} }, 40);
 };
 
@@ -231,183 +277,82 @@ window.delNode = (id) => {
   function rm(nid) {
     if (nid === T.root) T.root = null;
     for (const p in T.edges) T.edges[p] = T.edges[p].filter(e => e.to !== nid);
-    const kids = (T.edges[nid] || []).map(e => e.to);
-    delete T.nodes[nid]; delete T.edges[nid];
-    kids.forEach(rm);
+    const kids = (T.edges[nid]||[]).map(e => e.to);
+    delete T.nodes[nid]; delete T.edges[nid]; kids.forEach(rm);
   }
-  rm(id); saveAll(); R();
+  rm(id); saveToCloud(); R();
 };
 
-// ── Walk ──────────────────────────────────────────────────────────────────────
 window.startWalk = () => { hist = []; mode = 'walk'; R(); };
 window.goEdit = () => { mode = 'build'; R(); };
 
 function walkCur() {
   const T = getTree(); if (!T) return null;
-  return hist.length ? hist[hist.length - 1].to : T.root;
+  return hist.length ? hist[hist.length-1].to : T.root;
 }
 
 window.walkStep = (parentId, idx) => {
   const T = getTree(); if (!T) return;
-  const edge = (T.edges[parentId] || [])[idx];
-  if (!edge) return;
-  hist.push({ from: parentId, label: edge.label, to: edge.to });
-  R();
+  const edge = (T.edges[parentId]||[])[idx]; if (!edge) return;
+  hist.push({ from: parentId, label: edge.label, to: edge.to }); R();
 };
 
 window.walkBack = () => { if (hist.length) hist.pop(); else mode = 'build'; R(); };
 window.walkRestart = () => { hist = []; R(); };
 
-// ── Render: build node ────────────────────────────────────────────────────────
-function rNode(T, id, branchLabel) {
-  const n = T.nodes[id]; if (!n) return '';
-  const kids = T.edges[id] || [];
-  const isLeaf = kids.length === 0;
-  const isEd = editing === id;
-  const isAdd = addingTo === id;
-
-  const textPart = isEd
-    ? `<input class="ni" id="ei${id}" value="${esc(n.text)}"
-        oninput="window._et=this.value"
-        onkeydown="if(event.key==='Enter'){window._et=this.value;window.saveEdit('${id}');}else if(event.key==='Escape')window.cancelEdit();" />`
-    : `<span class="nt">${esc(n.text)}</span>`;
-
-  const acts = isEd
-    ? `<div class="acts">
-        <button class="ib" onclick="window.saveEdit('${id}')">✓</button>
-        <button class="ib" onclick="window.cancelEdit()">✕</button>
-      </div>`
-    : `<div class="acts">
-        <button class="ib" onclick="window.startAdd('${id}')" title="Add branch">+</button>
-        <button class="ib" onclick="window.startEdit('${id}')" title="Edit">✎</button>
-        <button class="ib del" onclick="window.delNode('${id}')" title="Delete">✕</button>
-      </div>`;
-
-  const bformHtml = `<div class="bform">
-    <span>if →</span>
-    <input id="bi" placeholder='"Yes"  "No"  "High"  "Low"…'
-      oninput="window._eb=this.value"
-      onkeydown="if(event.key==='Enter'){window._eb=this.value;window.confirmAdd();}else if(event.key==='Escape')window.cancelAdd();" />
-    <button onclick="window._eb=document.getElementById('bi').value;window.confirmAdd()">Add</button>
-    <button class="xbtn" onclick="window.cancelAdd()">✕</button>
-  </div>`;
-
-  const kidsHtml = (kids.length > 0 || isAdd)
-    ? `<div class="kids">
-        ${isAdd ? bformHtml : ''}
-        ${kids.map(e => rNode(T, e.to, e.label)).join('')}
-      </div>`
-    : '';
-
-  return `<div class="nw">
-    <div class="nr">
-      ${branchLabel ? `<span class="pill">${esc(branchLabel)}</span>` : ''}
-      <div class="nc ${isLeaf ? 'leaf' : ''} ${isEd ? 'ed' : ''}">
-        ${textPart}
-        ${isLeaf && !isEd ? '<span class="otag">outcome</span>' : ''}
-        ${acts}
-      </div>
-    </div>
-    ${kidsHtml}
-  </div>`;
+function rUserBar() {
+  const photo = currentUser.photoURL
+    ? `<img class="avatar" src="${esc(currentUser.photoURL)}" referrerpolicy="no-referrer" />`
+    : `<div class="avatar-fallback">${esc((currentUser.displayName||'?')[0].toUpperCase())}</div>`;
+  return `<div class="user-bar">${photo}<span class="user-name">${esc(currentUser.displayName||currentUser.email||'')}</span><span class="sync-dot ${isOnline?'':'offline'}" title="${isOnline?'Synced':'Offline'}"></span><button class="signout-btn" onclick="window.signOut()">Sign out</button></div>`;
 }
 
-// ── Render: walk ──────────────────────────────────────────────────────────────
+function rNode(T, id, branchLabel) {
+  const n = T.nodes[id]; if (!n) return '';
+  const kids = T.edges[id]||[];
+  const isLeaf = kids.length===0, isEd = editing===id, isAdd = addingTo===id;
+  const textPart = isEd
+    ? `<input class="ni" id="ei${id}" value="${esc(n.text)}" oninput="window._et=this.value" onkeydown="if(event.key==='Enter'){window._et=this.value;window.saveEdit('${id}');}else if(event.key==='Escape')window.cancelEdit();" />`
+    : `<span class="nt">${esc(n.text)}</span>`;
+  const acts = isEd
+    ? `<div class="acts"><button class="ib" onclick="window.saveEdit('${id}')">✓</button><button class="ib" onclick="window.cancelEdit()">✕</button></div>`
+    : `<div class="acts"><button class="ib" onclick="window.startAdd('${id}')">+</button><button class="ib" onclick="window.startEdit('${id}')">✎</button><button class="ib del" onclick="window.delNode('${id}')">✕</button></div>`;
+  const bform = `<div class="bform"><span>if →</span><input id="bi" placeholder='"Yes"  "No"  "High"  "Low"…' oninput="window._eb=this.value" onkeydown="if(event.key==='Enter'){window._eb=this.value;window.confirmAdd();}else if(event.key==='Escape')window.cancelAdd();" /><button onclick="window._eb=document.getElementById('bi').value;window.confirmAdd()">Add</button><button class="xbtn" onclick="window.cancelAdd()">✕</button></div>`;
+  const kidsHtml = (kids.length>0||isAdd)
+    ? `<div class="kids">${isAdd?bform:''}${kids.map(e=>rNode(T,e.to,e.label)).join('')}</div>` : '';
+  return `<div class="nw"><div class="nr">${branchLabel?`<span class="pill">${esc(branchLabel)}</span>`:''}<div class="nc ${isLeaf?'leaf':''} ${isEd?'ed':''}">${textPart}${isLeaf&&!isEd?'<span class="otag">outcome</span>':''}${acts}</div></div>${kidsHtml}</div>`;
+}
+
 function rWalk() {
   const T = getTree(); if (!T) return '';
   const nodeId = walkCur();
-  if (!nodeId || !T.nodes[nodeId]) return '<div class="empty">Tree not found.</div>';
-  const n = T.nodes[nodeId];
-  const kids = T.edges[nodeId] || [];
-  const isLeaf = kids.length === 0;
-
-  const backBtn = `<button class="wback" onclick="window.walkBack()">← ${hist.length ? 'Back' : 'Edit tree'}</button>`;
-  const bc = hist.length
-    ? `<div class="bc">${hist.map(h => `<span>${esc(T.nodes[h.from]?.text || '')}</span><span style="opacity:.45"> › ${esc(h.label)} › </span>`).join('')}</div>`
-    : '';
-
-  if (isLeaf) {
-    return `${backBtn}${bc}
-    <div class="wout">
-      <p class="wotag">Outcome</p>
-      <p class="wotext">${esc(n.text)}</p>
-      <button onclick="window.walkRestart()">Start over</button>
-    </div>`;
-  }
-
-  return `${backBtn}${bc}
-  <div class="wcard">
-    <p class="wq">${esc(n.text)}</p>
-    <div class="wa">${kids.map((e, i) =>
-      `<button class="wab" onclick="window.walkStep('${nodeId}',${i})">${esc(e.label)}</button>`
-    ).join('')}</div>
-  </div>`;
+  if (!nodeId||!T.nodes[nodeId]) return '<div class="empty">Tree not found.</div>';
+  const n = T.nodes[nodeId], kids = T.edges[nodeId]||[], isLeaf = kids.length===0;
+  const back = `<button class="wback" onclick="window.walkBack()">← ${hist.length?'Back':'Edit tree'}</button>`;
+  const bc = hist.length ? `<div class="bc">${hist.map(h=>`<span>${esc(T.nodes[h.from]?.text||'')}</span><span style="opacity:.45"> › ${esc(h.label)} › </span>`).join('')}</div>` : '';
+  if (isLeaf) return `${back}${bc}<div class="wout"><p class="wotag">Outcome</p><p class="wotext">${esc(n.text)}</p><button onclick="window.walkRestart()">Start over</button></div>`;
+  return `${back}${bc}<div class="wcard"><p class="wq">${esc(n.text)}</p><div class="wa">${kids.map((e,i)=>`<button class="wab" onclick="window.walkStep('${nodeId}',${i})">${esc(e.label)}</button>`).join('')}</div></div>`;
 }
 
-// ── Main render ───────────────────────────────────────────────────────────────
 function R() {
-  const app = document.getElementById('app');
-  if (!app) return;
+  const app = document.getElementById('app'); if (!app) return;
+  if (!currentUser) {
+    app.innerHTML = `<div class="signin-wrap"><h1>Decision Tree</h1><p>Sign in to build and sync your personal decision trees across all your devices.</p><button class="signin-btn" onclick="window.signIn()"><svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332Z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58Z" fill="#EA4335"/></svg>Sign in with Google</button><span class="signin-err" id="signin-err"></span></div>`;
+    return;
+  }
   const T = getTree();
-
-  // Tree tabs
-  const tabs = DB.trees.map(t =>
-    `<button class="tree-tab ${t.id === DB.activeId ? 'on' : ''}" onclick="window.switchTree('${t.id}')">${esc(t.title) || 'Untitled'}</button>`
-  ).join('') + `<button class="tree-tab add-tab" onclick="window.newTree()">+ New</button>`;
-
-  const treeBar = DB.trees.length > 0
-    ? `<div class="tree-bar">${tabs}</div>`
-    : '';
-
-  if (!T) {
-    app.innerHTML = `
-      ${treeBar}
-      <div class="empty">
-        No trees yet.<br>
-        <button onclick="window.newTree()">Create your first tree</button>
-      </div>`;
-    return;
-  }
-
+  const tabs = DB.trees.map(t=>`<button class="tree-tab ${t.id===DB.activeId?'on':''}" onclick="window.switchTree('${t.id}')">${esc(t.title)||'Untitled'}</button>`).join('')+`<button class="tree-tab add-tab" onclick="window.newTree()">+ New</button>`;
+  const treeBar = `<div class="tree-bar">${tabs}</div>`;
+  if (!T) { app.innerHTML = `${rUserBar()}${treeBar}<div class="empty">No trees yet.<br><button onclick="window.newTree()">Create your first tree</button></div>`; return; }
   const hasRoot = T.root && T.nodes[T.root];
-
-  if (mode === 'walk') {
-    app.innerHTML = `
-      ${treeBar}
-      <div class="hdr">
-        <span style="font-size:18px;font-weight:500;color:var(--color-text-primary)">${esc(T.title) || 'Decision tree'}</span>
-        <div class="tog">
-          <button onclick="window.goEdit()">Build</button>
-          <button class="on">Walk</button>
-        </div>
-      </div>
-      <div class="wcol">${rWalk()}</div>`;
-    return;
-  }
-
-  const treeHtml = hasRoot
-    ? rNode(T, T.root, null)
-    : `<div class="empty">No nodes yet.<br><button onclick="window.addRoot()">Add first node</button></div>`;
-
-  app.innerHTML = `
-    ${treeBar}
-    <div class="hdr">
-      <input class="ti" placeholder="Name your tree…" value="${esc(T.title)}"
-        oninput="window.updateTitle(this.value)" />
-      <div class="tog">
-        <button class="on">Build</button>
-        <button onclick="window.startWalk()" ${!hasRoot ? 'disabled' : ''}>Walk</button>
-      </div>
-    </div>
-    ${treeHtml}`;
+  if (mode==='walk') { app.innerHTML = `${rUserBar()}${treeBar}<div class="hdr"><span style="font-size:18px;font-weight:500;color:var(--color-text-primary)">${esc(T.title)||'Decision tree'}</span><div class="tog"><button onclick="window.goEdit()">Build</button><button class="on">Walk</button></div></div><div class="wcol">${rWalk()}</div>`; return; }
+  const treeHtml = hasRoot ? rNode(T,T.root,null) : `<div class="empty">No nodes yet.<br><button onclick="window.addRoot()">Add first node</button></div>`;
+  app.innerHTML = `${rUserBar()}${treeBar}<div class="hdr"><input class="ti" placeholder="Name your tree…" value="${esc(T.title)}" oninput="window.updateTitle(this.value)" /><div class="tog"><button class="on">Build</button><button onclick="window.startWalk()" ${!hasRoot?'disabled':''}>Walk</button></div></div>${treeHtml}`;
 }
 
-// ── Boot ──────────────────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
-
-R();
 </script>
 </body>
 </html>
